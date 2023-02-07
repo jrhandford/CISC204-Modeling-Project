@@ -3,6 +3,8 @@ import os, sys
 
 from run import example_theory
 
+# Test
+
 USAGE = '\n\tpython3 test.py [draft|final]\n'
 EXPECTED_VAR_MIN = 10
 EXPECTED_CONS_MIN = 50
