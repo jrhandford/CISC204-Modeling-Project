@@ -1,23 +1,25 @@
-
 from bauhaus import Encoding, proposition, constraint
 from bauhaus.utils import count_solutions, likelihood
 
 # These two lines make sure a faster SAT solver is used.
 from nnf import config
+
 config.sat_backend = "kissat"
 
 # Encoding that will store all of your constraints
 E = Encoding()
 
+
 # To create propositions, create classes for them first, annotated with "@proposition" and the Encoding
 @proposition(E)
-class BasicPropositions:
+class AnimalSide:
 
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, animal, side):
+        self.animal = animal
+        self.side = side
 
     def __repr__(self):
-        return f"A.{self.data}"
+        return f"A.{self.animal}"
 
 
 # Different classes for propositions are useful because this allows for more dynamic constraint creation
@@ -35,12 +37,17 @@ class FancyPropositions:
     def __repr__(self):
         return f"A.{self.data}"
 
+
 # Call your variables whatever you want
-a = BasicPropositions("a")
-b = BasicPropositions("b")   
-c = BasicPropositions("c")
-d = BasicPropositions("d")
-e = BasicPropositions("e")
+farmerShore = AnimalSide("Farmer", "Shore")
+farmerCrossed = AnimalSide("Farmer", "Crossed")
+cabbageShore = AnimalSide("Cabbage", "Shore")
+cabbageCrossed = AnimalSide("Cabbage", "Crossed")
+wolfShore = AnimalSide("Wolf", "Shore")
+wolfCrossed = AnimalSide("Wolf", "Crossed")
+goatShore = AnimalSide("Goat", "Shore")
+goatCrossed = AnimalSide("Goat", "Crossed")
+
 # At least one of these will be true
 x = FancyPropositions("x")
 y = FancyPropositions("y")
@@ -53,15 +60,20 @@ z = FancyPropositions("z")
 #  This restriction is fairly minimal, and if there is any concern, reach out to the teaching staff to clarify
 #  what the expectations are.
 def example_theory():
-    # Add custom constraints by creating formulas with the variables you created. 
-    E.add_constraint((a | b) & ~x)
-    # Implication
-    E.add_constraint(y >> z)
-    # Negate a formula
-    E.add_constraint(~(x & y))
-    # You can also add more customized "fancy" constraints. Use case: you don't want to enforce "exactly one"
-    # for every instance of BasicPropositions, but you want to enforce it for a, b, and c.:
-    constraint.add_exactly_one(E, a, b, c)
+    E.add_constraint((farmerShore | farmerCrossed) & ~(farmerCrossed & farmerShore))
+    E.add_constraint((cabbageShore | cabbageCrossed) & ~(cabbageCrossed & cabbageShore))
+    E.add_constraint((wolfShore | wolfCrossed) & ~(wolfCrossed & wolfShore))
+    E.add_constraint((goatShore | goatCrossed) & ~(goatCrossed & goatShore))
+
+    # # Add custom constraints by creating formulas with the variables you created.
+    # E.add_constraint((a | b) & ~x)
+    # # Implication
+    # E.add_constraint(y >> z)
+    # # Negate a formula
+    # E.add_constraint(~(x & y))
+    # # You can also add more customized "fancy" constraints. Use case: you don't want to enforce "exactly one"
+    # # for every instance of BasicPropositions, but you want to enforce it for a, b, and c.:
+    # constraint.add_exactly_one(E, a, b, c)
 
     return E
 
@@ -78,7 +90,7 @@ if __name__ == "__main__":
     print("   Solution: %s" % T.solve())
 
     print("\nVariable likelihoods:")
-    for v,vn in zip([a,b,c,x,y,z], 'abcxyz'):
+    for v, vn in zip([a, b, c, x, y, z], 'abcxyz'):
         # Ensure that you only send these functions NNF formulas
         # Literals are compiled to NNF here
         print(" %s: %.2f" % (vn, likelihood(T, v)))
