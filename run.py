@@ -19,23 +19,13 @@ class AnimalSide:
         self.side = side
 
     def __repr__(self):
-        return f"A.{self.animal}"
+        return f"A.{self.animal}.{self.side}"
 
 
-# Different classes for propositions are useful because this allows for more dynamic constraint creation
-# for propositions within that class. For example, you can enforce that "at least one" of the propositions
-# that are instances of this class must be true by using a @constraint decorator.
-# other options include: at most one, exactly one, at most k, and implies all.
-# For a complete module reference, see https://bauhaus.readthedocs.io/en/latest/bauhaus.html
-@constraint.at_least_one(E)
 @proposition(E)
-class FancyPropositions:
-
-    def __init__(self, data):
-        self.data = data
-
-    def __repr__(self):
-        return f"A.{self.data}"
+class GameState:
+    def __init__(self, farmerSide, cabbageSide, goatSide, wolfSide):
+        self.farmerSide = farmerSide
 
 
 # Call your variables whatever you want
@@ -48,11 +38,7 @@ wolfCrossed = AnimalSide("Wolf", "Crossed")
 goatShore = AnimalSide("Goat", "Shore")
 goatCrossed = AnimalSide("Goat", "Crossed")
 
-# At least one of these will be true
-x = FancyPropositions("x")
-y = FancyPropositions("y")
-z = FancyPropositions("z")
-
+gamestates = [(farmerShore & ~farmerCrossed & cabbageShore & ~cabbageCrossed & wolfShore & ~wolfCrossed & goatShore & ~goatCrossed)]
 
 # Build an example full theory for your setting and return it.
 #
@@ -60,10 +46,20 @@ z = FancyPropositions("z")
 #  This restriction is fairly minimal, and if there is any concern, reach out to the teaching staff to clarify
 #  what the expectations are.
 def example_theory():
+    # Can't be on two sides at the same time
     E.add_constraint((farmerShore | farmerCrossed) & ~(farmerCrossed & farmerShore))
     E.add_constraint((cabbageShore | cabbageCrossed) & ~(cabbageCrossed & cabbageShore))
     E.add_constraint((wolfShore | wolfCrossed) & ~(wolfCrossed & wolfShore))
     E.add_constraint((goatShore | goatCrossed) & ~(goatCrossed & goatShore))
+    # Goat and cabbage can't be on the same side without the farmer
+    E.add_constraint(~(goatShore & cabbageShore & ~farmerShore))
+    E.add_constraint(~(goatCrossed & cabbageCrossed & ~farmerCrossed))
+    # Goat and wolf can't be on the same side without the farmer
+    E.add_constraint(~(wolfShore & goatShore & ~farmerShore))
+    E.add_constraint(~(wolfCrossed & goatCrossed & ~farmerCrossed))
+
+    E.add_constraint(gamestates[0] >> ~cabbageShore)
+
 
     # # Add custom constraints by creating formulas with the variables you created.
     # E.add_constraint((a | b) & ~x)
@@ -89,9 +85,9 @@ if __name__ == "__main__":
     print("# Solutions: %d" % count_solutions(T))
     print("   Solution: %s" % T.solve())
 
-    print("\nVariable likelihoods:")
-    for v, vn in zip([a, b, c, x, y, z], 'abcxyz'):
-        # Ensure that you only send these functions NNF formulas
-        # Literals are compiled to NNF here
-        print(" %s: %.2f" % (vn, likelihood(T, v)))
-    print()
+    # print("\nVariable likelihoods:")
+    # for v, vn in zip([a, b, c, x, y, z], 'abcxyz'):
+    #     # Ensure that you only send these functions NNF formulas
+    #     # Literals are compiled to NNF here
+    #     print(" %s: %.2f" % (vn, likelihood(T, v)))
+    # print()
