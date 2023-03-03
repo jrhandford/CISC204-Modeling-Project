@@ -13,7 +13,6 @@ E = Encoding()
 # To create propositions, create classes for them first, annotated with "@proposition" and the Encoding
 @proposition(E)
 class AnimalSide:
-
     def __init__(self, animal, side):
         self.animal = animal
         self.side = side
@@ -24,11 +23,15 @@ class AnimalSide:
 
 @proposition(E)
 class GameState:
-    def __init__(self, farmerSide, cabbageSide, goatSide, wolfSide):
+    def __init__(self, farmerSide, cabbageSide, goatSide, wolfSide, time):
         self.farmerSide = farmerSide
+        self.cabbageSide = cabbageSide
+        self.goatSide = goatSide
+        self.wolfSide = wolfSide
+        self.time = time
 
 
-# Call your variables whatever you want
+# Declare all AnimalSide propositions
 farmerShore = AnimalSide("Farmer", "Shore")
 farmerCrossed = AnimalSide("Farmer", "Crossed")
 cabbageShore = AnimalSide("Cabbage", "Shore")
@@ -58,19 +61,7 @@ def example_theory():
     E.add_constraint(~(wolfShore & goatShore & ~farmerShore))
     E.add_constraint(~(wolfCrossed & goatCrossed & ~farmerCrossed))
 
-    E.add_constraint(gamestates[0] >> ~cabbageShore)
-
-
-    # # Add custom constraints by creating formulas with the variables you created.
-    # E.add_constraint((a | b) & ~x)
-    # # Implication
-    # E.add_constraint(y >> z)
-    # # Negate a formula
-    # E.add_constraint(~(x & y))
-    # # You can also add more customized "fancy" constraints. Use case: you don't want to enforce "exactly one"
-    # # for every instance of BasicPropositions, but you want to enforce it for a, b, and c.:
-    # constraint.add_exactly_one(E, a, b, c)
-
+    # Gamestates not implemented yet
     return E
 
 
