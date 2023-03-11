@@ -10,75 +10,96 @@ config.sat_backend = "kissat"
 E = Encoding()
 
 
-# To create propositions, create classes for them first, annotated with "@proposition" and the Encoding
 @proposition(E)
-class AnimalSide:
-    def __init__(self, animal, side):
+class AnimalSideTime:
+    def __init__(self, animal, side, time, opposite=None, sorting_order=0, prev=None):
         self.animal = animal
         self.side = side
+        self.time = time
+        self.opposite = opposite
+        self.sorting_order = sorting_order  # Used in printing the output
+        self.prev = prev
 
     def __repr__(self):
-        return f"A.{self.animal}.{self.side}"
+        return f"{self.animal}{self.side}"
+        # return f"A.{self.animal}.{self.side}.{self.time}"
+
+    def __lt__(self, other):
+        return self.time < other.time
 
 
-@proposition(E)
-class GameState:
-    def __init__(self, farmerSide, cabbageSide, goatSide, wolfSide, time):
-        self.farmerSide = farmerSide
-        self.cabbageSide = cabbageSide
-        self.goatSide = goatSide
-        self.wolfSide = wolfSide
-        self.time = time
+# Constraints
+def generate_constraints():
+    for time in range(0, moves + 1):
+        # Initial game state
+        if time == 0:
+            # Establish propositions
+            farmer_shore = AnimalSideTime("Farmer", "Shore", time, sorting_order=0)
+            cabbage_shore = AnimalSideTime("Cabbage", "Shore", time, sorting_order=1)
+            wolf_shore = AnimalSideTime("Wolf", "Shore", time, sorting_order=2)
+            goat_shore = AnimalSideTime("Goat", "Shore", time, sorting_order=3)
 
+            E.add_constraint(farmer_shore & cabbage_shore & wolf_shore & goat_shore)
+            continue
 
-# Declare all AnimalSide propositions
-farmerShore = AnimalSide("Farmer", "Shore")
-farmerCrossed = AnimalSide("Farmer", "Crossed")
-cabbageShore = AnimalSide("Cabbage", "Shore")
-cabbageCrossed = AnimalSide("Cabbage", "Crossed")
-wolfShore = AnimalSide("Wolf", "Shore")
-wolfCrossed = AnimalSide("Wolf", "Crossed")
-goatShore = AnimalSide("Goat", "Shore")
-goatCrossed = AnimalSide("Goat", "Crossed")
+        # Establish propositions
+        farmer_shore = AnimalSideTime("Farmer", "Shore", time, sorting_order=0, prev=farmer_shore)
+        cabbage_shore = AnimalSideTime("Cabbage", "Shore", time, sorting_order=1, prev=cabbage_shore)
+        wolf_shore = AnimalSideTime("Wolf", "Shore", time, sorting_order=2, prev=wolf_shore)
+        goat_shore = AnimalSideTime("Goat", "Shore", time, sorting_order=3, prev=goat_shore)
 
-gamestates = [(farmerShore & ~farmerCrossed & cabbageShore & ~cabbageCrossed & wolfShore & ~wolfCrossed & goatShore & ~goatCrossed)]
+        # Goat and cabbage can't be on the same side without the farmer
+        E.add_constraint(~(goat_shore & cabbage_shore & ~farmer_shore))
+        E.add_constraint(~(~goat_shore & ~cabbage_shore & farmer_shore))
+        # Goat and wolf can't be on the same side without the farmer
+        E.add_constraint(~(wolf_shore & goat_shore & ~farmer_shore))
+        E.add_constraint(~(~wolf_shore & ~goat_shore & farmer_shore))
 
-# Build an example full theory for your setting and return it.
-#
-#  There should be at least 10 variables, and a sufficiently large formula to describe it (>50 operators).
-#  This restriction is fairly minimal, and if there is any concern, reach out to the teaching staff to clarify
-#  what the expectations are.
-def example_theory():
-    # Can't be on two sides at the same time
-    E.add_constraint((farmerShore | farmerCrossed) & ~(farmerCrossed & farmerShore))
-    E.add_constraint((cabbageShore | cabbageCrossed) & ~(cabbageCrossed & cabbageShore))
-    E.add_constraint((wolfShore | wolfCrossed) & ~(wolfCrossed & wolfShore))
-    E.add_constraint((goatShore | goatCrossed) & ~(goatCrossed & goatShore))
-    # Goat and cabbage can't be on the same side without the farmer
-    E.add_constraint(~(goatShore & cabbageShore & ~farmerShore))
-    E.add_constraint(~(goatCrossed & cabbageCrossed & ~farmerCrossed))
-    # Goat and wolf can't be on the same side without the farmer
-    E.add_constraint(~(wolfShore & goatShore & ~farmerShore))
-    E.add_constraint(~(wolfCrossed & goatCrossed & ~farmerCrossed))
+        animals = [cabbage_shore, goat_shore, wolf_shore]
+        # Only one animal can move at a time, and only if the farmer goes with them
+        for i in range(len(animals)):
+            animal_shore = animals[i]
+            other_animal1_shore = animals[(i + 1) % 3]
+            other_animal2_shore = animals[(i + 2) % 3]
+            # Animal moves from the other side to the shore
+            E.add_constraint((animal_shore & ~animal_shore.prev)
+                             # Farmer has to also move from the other side to the shore
+                             >> ((farmer_shore & ~farmer_shore.prev)
+                                 # Other animals can't change sides
+                                 & ((other_animal1_shore & other_animal1_shore.prev)
+                                    | (~other_animal1_shore & ~other_animal1_shore.prev))
+                                 & ((other_animal2_shore & other_animal2_shore.prev)
+                                    | (~other_animal2_shore & ~other_animal2_shore.prev))))
+            # Animal moves from the shore to the other side
+            E.add_constraint((~animal_shore & animal_shore.prev)
+                             # Farmer has to also move from the shore to the other side
+                             >> ((~farmer_shore & farmer_shore.prev)
+                                 # Other animals can't change sides
+                                 & ((other_animal1_shore & other_animal1_shore.prev)
+                                    | (~other_animal1_shore & ~other_animal1_shore.prev))
+                                 & ((other_animal2_shore & other_animal2_shore.prev)
+                                    | (~other_animal2_shore & ~other_animal2_shore.prev))))
 
-    # Gamestates not implemented yet
-    return E
+        # The farmer has to move every turn
+        E.add_constraint((~farmer_shore & farmer_shore.prev) | (farmer_shore & ~farmer_shore.prev))
+
+        # By the end, everyone has to be on the other side
+        if time == moves:
+            E.add_constraint(~farmer_shore & ~cabbage_shore & ~wolf_shore & ~goat_shore)
 
 
 if __name__ == "__main__":
+    moves = 7
+    generate_constraints()
+    T = E.compile()
 
-    T = example_theory()
-    # Don't compile until you're finished adding all your constraints!
-    T = T.compile()
-    # After compilation (and only after), you can check some of the properties
-    # of your model:
     print("\nSatisfiable: %s" % T.satisfiable())
     print("# Solutions: %d" % count_solutions(T))
-    print("   Solution: %s" % T.solve())
 
-    # print("\nVariable likelihoods:")
-    # for v, vn in zip([a, b, c, x, y, z], 'abcxyz'):
-    #     # Ensure that you only send these functions NNF formulas
-    #     # Literals are compiled to NNF here
-    #     print(" %s: %.2f" % (vn, likelihood(T, v)))
-    # print()
+    sol = T.solve()
+    game_states = [["FarmerCrossed", "CabbageCrossed", "WolfCrossed", "GoatCrossed"] for x in range(moves + 1)]
+    for animal_side in sol.keys():
+        if sol.get(animal_side):
+            game_states[animal_side.time][animal_side.sorting_order] = animal_side.__repr__()
+    for time in range(moves + 1):
+        print(game_states[time])
