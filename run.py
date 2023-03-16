@@ -6,100 +6,113 @@ from nnf import config
 
 config.sat_backend = "kissat"
 
-# Encoding that will store all of your constraints
-E = Encoding()
-
-
-@proposition(E)
-class AnimalSideTime:
-    def __init__(self, animal, side, time, opposite=None, sorting_order=0, prev=None):
-        self.animal = animal
-        self.side = side
-        self.time = time
-        self.opposite = opposite
-        self.sorting_order = sorting_order  # Used in printing the output
-        self.prev = prev
-
-    def __repr__(self):
-        return f"{self.animal}{self.side}"
-        # return f"A.{self.animal}.{self.side}.{self.time}"
-
-    def __lt__(self, other):
-        return self.time < other.time
-
-
 # Constraints
-def generate_constraints():
-    for time in range(0, moves + 1):
-        # Initial game state
-        if time == 0:
-            # Establish propositions
-            farmer_shore = AnimalSideTime("Farmer", "Shore", time, sorting_order=0)
-            cabbage_shore = AnimalSideTime("Cabbage", "Shore", time, sorting_order=1)
-            wolf_shore = AnimalSideTime("Wolf", "Shore", time, sorting_order=2)
-            goat_shore = AnimalSideTime("Goat", "Shore", time, sorting_order=3)
+def generate_constraints(moves, carrier, animals, infighting_groups):
+    E = Encoding()
 
-            E.add_constraint(farmer_shore & cabbage_shore & wolf_shore & goat_shore)
-            continue
+    @proposition(E)
+    # Side is shore by default - if the proposition is negated, then it is assumed that they have crossed
+    class AnimalSideTime:
+        def __init__(self, animal, time, sorting_order=0, prev=None):
+            self.animal = animal
+            self.time = time
+            self.sorting_order = sorting_order  # Used in printing the output
+            self.prev = prev  # Previous game state
 
+        def __repr__(self):
+            return f"{self.animal}"
+
+        def __lt__(self, other):
+            return self.time < other.time
+
+    animal_count = len(animals)
+    # Initial game state
+    carrier_shore = AnimalSideTime(carrier, time=0, sorting_order=animal_count)
+    animals_shore = [None] * animal_count
+    for i in range(animal_count):
+        animals_shore[i] = AnimalSideTime(animals[i], time=0, sorting_order=i)
+        # Everyone starts on the shore at the beginning
+        E.add_constraint(animals_shore[i])
+    E.add_constraint(carrier_shore)
+
+    infighting_group_indexes = []
+    # Indexing where the animals of the infighting groups are to make creating constraints easier
+    for i in range(len(infighting_groups)):
+        infighting_group_indexes.append([])
+        for animal in infighting_groups[i]:
+            infighting_group_indexes[i].append(animals.index(animal))
+
+    # Iteratively establishing game states over time
+    for time in range(1, moves + 1):
         # Establish propositions
-        farmer_shore = AnimalSideTime("Farmer", "Shore", time, sorting_order=0, prev=farmer_shore)
-        cabbage_shore = AnimalSideTime("Cabbage", "Shore", time, sorting_order=1, prev=cabbage_shore)
-        wolf_shore = AnimalSideTime("Wolf", "Shore", time, sorting_order=2, prev=wolf_shore)
-        goat_shore = AnimalSideTime("Goat", "Shore", time, sorting_order=3, prev=goat_shore)
+        for i in range(animal_count):
+            animals_shore[i] = AnimalSideTime(animals[i], time, sorting_order=i, prev=animals_shore[i])
+        carrier_shore = AnimalSideTime(carrier, time, sorting_order=animal_count, prev=carrier_shore)
 
-        # Goat and cabbage can't be on the same side without the farmer
-        E.add_constraint(~(goat_shore & cabbage_shore & ~farmer_shore))
-        E.add_constraint(~(~goat_shore & ~cabbage_shore & farmer_shore))
-        # Goat and wolf can't be on the same side without the farmer
-        E.add_constraint(~(wolf_shore & goat_shore & ~farmer_shore))
-        E.add_constraint(~(~wolf_shore & ~goat_shore & farmer_shore))
+        # Animals within the infighting groups can't be on the same side without the carrier/farmer
+        for indexes in infighting_group_indexes:
+            for i in range(len(indexes)):
+                for j in range(i + 1, len(indexes)):
+                    E.add_constraint(~(animals_shore[indexes[i]] & animals_shore[indexes[j]] & ~carrier_shore))
+                    E.add_constraint(~(~animals_shore[indexes[i]] & ~animals_shore[indexes[j]] & carrier_shore))
 
-        animals = [cabbage_shore, goat_shore, wolf_shore]
         # Only one animal can move at a time, and only if the farmer goes with them
-        for i in range(len(animals)):
-            animal_shore = animals[i]
-            other_animal1_shore = animals[(i + 1) % 3]
-            other_animal2_shore = animals[(i + 2) % 3]
-            # Animal moves from the other side to the shore
+        for i in range(animal_count):
+            animal_shore = animals_shore[i]
+            # Animals can't cross without farmer
             E.add_constraint((animal_shore & ~animal_shore.prev)
-                             # Farmer has to also move from the other side to the shore
-                             >> ((farmer_shore & ~farmer_shore.prev)
-                                 # Other animals can't change sides
-                                 & ((other_animal1_shore & other_animal1_shore.prev)
-                                    | (~other_animal1_shore & ~other_animal1_shore.prev))
-                                 & ((other_animal2_shore & other_animal2_shore.prev)
-                                    | (~other_animal2_shore & ~other_animal2_shore.prev))))
-            # Animal moves from the shore to the other side
+                             >> (carrier_shore & ~carrier_shore.prev))
             E.add_constraint((~animal_shore & animal_shore.prev)
-                             # Farmer has to also move from the shore to the other side
-                             >> ((~farmer_shore & farmer_shore.prev)
-                                 # Other animals can't change sides
-                                 & ((other_animal1_shore & other_animal1_shore.prev)
-                                    | (~other_animal1_shore & ~other_animal1_shore.prev))
-                                 & ((other_animal2_shore & other_animal2_shore.prev)
-                                    | (~other_animal2_shore & ~other_animal2_shore.prev))))
+                             >> (~carrier_shore & carrier_shore.prev))
+            for j in range(i + 1, animal_count):
+                other_animal_shore = animals_shore[j]
+                # Other animals can't cross while the current one is crossing
+                E.add_constraint(((animal_shore & ~animal_shore.prev) | (~animal_shore & animal_shore.prev))
+                                 >> ((other_animal_shore & other_animal_shore.prev)
+                                     | (~other_animal_shore & ~other_animal_shore.prev)))
 
         # The farmer has to move every turn
-        E.add_constraint((~farmer_shore & farmer_shore.prev) | (farmer_shore & ~farmer_shore.prev))
+        E.add_constraint((~carrier_shore & carrier_shore.prev) | (carrier_shore & ~carrier_shore.prev))
 
         # By the end, everyone has to be on the other side
         if time == moves:
-            E.add_constraint(~farmer_shore & ~cabbage_shore & ~wolf_shore & ~goat_shore)
+            E.add_constraint(~carrier_shore)
+            for animal_shore in animals_shore:
+                E.add_constraint(~animal_shore)
+    return E
 
 
 if __name__ == "__main__":
-    moves = 7
-    generate_constraints()
-    T = E.compile()
+    min_moves = 4
+    max_moves = 32
+    carrier = "Farmer"
+    animals = ["Cabbage", "Wolf", "Goat", "Chicken"]
+    infighting_groups = [["Cabbage", "Goat"], ["Wolf", "Cabbage"]]
+
+    for moves in range(min_moves, max_moves + 1):
+        E = generate_constraints(moves, carrier, animals, infighting_groups)
+        T = E.compile()
+        if T.satisfiable():
+            break
+        E.clear_constraints()
+        E.purge_propositions()
 
     print("\nSatisfiable: %s" % T.satisfiable())
-    print("# Solutions: %d" % count_solutions(T))
 
-    sol = T.solve()
-    game_states = [["FarmerCrossed", "CabbageCrossed", "WolfCrossed", "GoatCrossed"] for x in range(moves + 1)]
-    for animal_side in sol.keys():
-        if sol.get(animal_side):
-            game_states[animal_side.time][animal_side.sorting_order] = animal_side.__repr__()
-    for time in range(moves + 1):
-        print(game_states[time])
+    if T.satisfiable():
+        sol = T.solve()
+        print("Solved in %d moves" % moves)
+        print("Solutions (within %d moves): %d" % (moves, count_solutions(T)))
+        for i in range(len(animals)):
+            animals[i] = animals[i].upper()
+        animals += [carrier.upper()]
+        game_states = []
+        for i in range(moves + 1):
+            game_states.append(animals.copy())
+        for animal_side in sol.keys():
+            if sol.get(animal_side):
+                game_states[animal_side.time][animal_side.sorting_order] = animal_side.__repr__()
+        for time in range(moves + 1):
+            print(game_states[time])
+    else:
+        print("No solutions found within %d moves." % max_moves)
