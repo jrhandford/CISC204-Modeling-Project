@@ -1,22 +1,21 @@
 # CISC/CMPE 204 Modelling Project
 
-Welcome to the major project for CISC/CMPE 204!
+In this project, we model the river crossing puzzle in bauhaus, a python library for encoding and solving things using propositional logic.
 
-Change this README.md file to summarize your project, and provide pointers to the general structure of the repository. How you organize and build things (which files, how you structure things, etc) is entirely up to you! The only things you must keep in place are what is already listed in the **Structure** section below.
+In the river crossing puzzle, a farmer starts on one side of a river alongside a cabbage, goat, and wolf. He has a boat which can only carry him and one other thing across the river. However, if he leaves the goat alone with the wolf, the wolf will eat the goat, and if he leaves the goat alone with the cabbage, the goat will eat the cabbage.  The farmer needs to figure out the sequence of steps he needs to take in order to take everyone across the river intact.
+
+The program in this project is pre-configured to solve the river crossing puzzle in the least amount of moves, but its variables can be adjusted to change the number of moves allowed, along with increasing/decreasing the number of animals and which animals can't be left alone without the farmer. 
 
 ## Structure
-
-* `documents`: Contains folders for both of your draft and final submissions. README.md files are included in both.
-* `run.py`: General wrapper script that you can choose to use or not. Only requirement is that you implement the one function inside of there for the auto-checks.
-* `test.py`: Run this file to confirm that your submission has everything required. This essentially just means it will check for the right files and sufficient theory size.
+* `run.py`: Main program file. Run this in docker using the command 'python3 run.py'
 
 ## Running With Docker
 
-By far the most reliable way to get things running is with [Docker](https://www.docker.com). This section runs through the steps and extra tips to running with Docker. You can remove this section for your final submission, and replace it with a section on how to run your project.
+By far the most reliable way to get things running is with [Docker](https://www.docker.com).
 
-1. First, download Docker https://www.docker.com/get-started
+1. First, download Docker https://www.docker.com/get-started and the project as a zip. Unzip the project into a folder.
 
-2. Navigate to your project folder on the command line.
+2. Navigate to the root of the project folder on the command line.
 
 3. We first have to build the course image. To do so use the command:
 `docker build -t cisc204 .`
@@ -27,7 +26,9 @@ By far the most reliable way to get things running is with [Docker](https://www.
 
     `/PROJECT` is the folder in the container that will be tied to your local directory
 
-5. From there the two folders should be connected, everything you do in one automatically updates in the other. For the project you will write the code in your local directory and then run it through the docker command line. A quick test to see if they're working is to create a file in the folder on your computer then use the terminal to see if it also shows up in the docker container.
+5. To run the program in Docker, type 'python3 run.py' in the Docker terminal with the container running. If it's working correctly, you should see an output in the console.
+
+6. To play around with the results, you may modify the variables at the top of the main function in run.py.
 
 ### Mac Users w/ M1 Chips
 

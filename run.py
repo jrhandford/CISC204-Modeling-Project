@@ -6,6 +6,7 @@ from nnf import config
 
 config.sat_backend = "kissat"
 
+
 # Constraints
 def generate_constraints(moves, carrier, animals, infighting_groups):
     E = Encoding()
@@ -83,11 +84,18 @@ def generate_constraints(moves, carrier, animals, infighting_groups):
 
 
 if __name__ == "__main__":
-    min_moves = 4
+    # Feel free to modify these variables
+    # 'carrier' can be any string, and 'animals' can contain any number of strings
+    #
+    # 'infighting_groups' can contain any number of lists, which themselves
+    # must contain strings from the 'animals' list.
+    # Any animals within the same list in 'infighting_groups' cannot be left alone without the carrier.
+
+    min_moves = 1
     max_moves = 32
-    carrier = "Farmer"
-    animals = ["Cabbage", "Wolf", "Goat", "Chicken"]
-    infighting_groups = [["Cabbage", "Goat"], ["Wolf", "Cabbage"]]
+    carrier = "farmer"
+    animals = ["cabbage", "wolf", "goat"]
+    infighting_groups = [["cabbage", "goat"], ["wolf", "goat"]]
 
     for moves in range(min_moves, max_moves + 1):
         E = generate_constraints(moves, carrier, animals, infighting_groups)
@@ -103,6 +111,9 @@ if __name__ == "__main__":
         sol = T.solve()
         print("Solved in %d moves" % moves)
         print("Solutions (within %d moves): %d" % (moves, count_solutions(T)))
+
+        print("\nExample solution gamestates (things on the other side indicated by full caps):")
+        # Printing the gamestates
         for i in range(len(animals)):
             animals[i] = animals[i].upper()
         animals += [carrier.upper()]
